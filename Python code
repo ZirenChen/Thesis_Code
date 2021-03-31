@@ -1,0 +1,7 @@
+def mape(a,b):
+    e = sum(np.abs((a-b[0:len(a)])/a))/len(a)
+    return e
+
+def mae(a,b):
+    e = sum(np.abs(a-b[0:len(a)]))/len(a)
+    return e
