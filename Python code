@@ -1,1 +1,246 @@
+#For the convenience of reading, only the core code is listed here. 
+#Data scraping, ploting, etc. are not listed.
 
+
+#discrete model of SEIUR
+def Infecious(I0, rI, E0, R0, U0, beta, gamma):
+    
+    n = len(rI) + 7
+    S = np.zeros(n)
+    E = np.zeros(n)
+    I = np.zeros(n)
+    R = np.zeros(n)
+    N = np.zeros(n)
+    U = np.zeros(n)
+    
+    U[0] = U0
+    R[0] = R0
+    E[0] = E0
+    I[0] = I0
+    N[0] = 3e8
+    S[0] = N[0] - I[0] - E[0] - R[0] - U[0]
+    
+    beta = beta
+    sigma = 1/6
+    gamma = gamma
+    f = 0.6
+    
+    for i in range(n-1):
+        S[i+1] = S[i] - beta * U[i] * S[i] / N[i] -\
+        beta * E[i] * S[i] / N[i]
+        
+        E[i+1] = E[i] + beta * U[i] * S[i] / N[i] +\
+        beta * E[i] * S[i] / N[i] - sigma * E[i]
+        
+        I[i+1] = max(I[i] + f*sigma * E[i] - gamma * I[i],0)
+        
+        U[i+1] = max(U[i] + (1-f)*sigma * E[i] - gamma * U[i],0)
+        
+        R[i+1] = R[i] + gamma * (I[i] + U[i])
+        
+        N[i+1] = S[i+1] + E[i+1] + I[i+1] + R[i+1] + U[i+1]
+    return I, R, E, U
+
+#MSE
+def SSE(I,rI):
+    SSE = sum((I[0:len(rI)]-rI)**2)/len(rI)
+    return SSE
+    
+#MAPE
+def mape(a,b):
+    e = sum(np.abs((a-b[0:len(a)])/a))/len(a)
+    return e
+    
+#MAE
+def mae(a,b):
+    e = sum(np.abs(a-b[0:len(a)]))/len(a)
+    return e
+    
+#Data preprocessing 
+#AI, D and TI are the data grabbed from the 'worldmeter'
+#where AI: Active Cases, TI: Total Cases and D: Total Deaths
+
+R1 = TI - AI
+Re = R1 - D
+
+AI1 = AI[13:31] 
+AI2 = AI[31:46]
+AI3 = AI[46:66]
+AI4 = AI[66:117]
+AI5 = AI[117:152]
+AI6 = AI[152:233]
+AI7 = AI[233:304]
+AI8 = AI[304:]
+
+#Parameter Estimation and numerical simulation for period 1 (Piece-wise SEIUR)
+sse = np.zeros(shape = (100,100))
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I, R, E, U = Infecious(AI1[0], AI1, 0, R1[13], AI1[0]*(1-0.1)/0.1, beta, gamma)
+        sse[int((beta+0.00001)/0.01),int((gamma+0.000001)/0.01)] = SSE(I,AI1)
+        
+m = np.min(sse)
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I, R, E, U = Infecious(AI1[0], AI1, 0, R1[13], AI1[0]*(1-0.1)/0.1, beta, gamma)
+        s = SSE(I,AI1)
+        if s == m:
+            beta0 = beta
+            gamma0 = gamma
+            break
+                   
+I, R, E, U = Infecious(AI1[0], AI1, 0, R1[13], AI1[0]*(1-0.1)/0.1, beta0, gamma0)
+
+#Parameter Estimation and numerical simulation for period 2 (Piece-wise SEIUR)
+sse = np.zeros(shape = (100,100))
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI2, E[-7], R[-7], U[-7], beta, gamma)
+        sse[int((beta+0.00001)/0.01),int((gamma+0.000001)/0.01)] = SSE(I0,AI2)       
+
+m = np.min(sse)
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI2, E[-7], R[-7], U[-7], beta, gamma)
+        s = SSE(I0,AI2)
+        if s == m:
+            beta0 = beta
+            gamma0 = gamma
+            break
+
+I, R, E, U = Infecious(I[-7], AI2, E[-7], R[-7], U[-7], beta0, gamma0)
+
+#Parameter Estimation and numerical simulation for period 3 (Piece-wise SEIUR)
+sse = np.zeros(shape = (100,100))
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI3, E[-7], R[-7], U[-7], beta, gamma)
+        sse[int((beta+0.00001)/0.01),int((gamma+0.000001)/0.01)] = SSE(I0,AI3)
+
+m = np.min(sse)
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI3, E[-7], R[-7], U[-7], beta, gamma)
+        s = SSE(I0,AI3)
+        if s == m:
+            beta0 = beta
+            gamma0 = gamma
+            break
+
+I, R, E, U = Infecious(I[-7], AI3, E[-7], R[-7], U[-7], beta0, gamma0)
+
+#Parameter Estimation and numerical simulation for period 4 (Piece-wise SEIUR)
+sse = np.zeros(shape = (100,100))
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI4, E[-7], R[-7], U[-7], beta, gamma)
+        sse[int((beta+0.00001)/0.01),int((gamma+0.000001)/0.01)] = SSE(I0,AI4)
+
+
+m = np.min(sse)
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI4, E[-7], R[-7], U[-7], beta, gamma)
+        s = SSE(I0,AI4)
+        if s == m:
+            beta0 = beta
+            gamma0 = gamma
+            break
+
+I, R, E, U = Infecious(I[-7], AI4, E[-7], R[-7], U[-7], beta0, gamma0)
+
+#Parameter Estimation and numerical simulation for period 5 (Piece-wise SEIUR)
+sse = np.zeros(shape = (100,100))
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI5, E[-7], R[-7], U[-7], beta, gamma)
+        sse[int((beta+0.00001)/0.01),int((gamma+0.000001)/0.01)] = SSE(I0,AI5)
+
+m = np.min(sse)
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI5, E[-7], R[-7], U[-7], beta, gamma)
+        s = SSE(I0,AI5)
+        if s == m:
+            beta0 = beta
+            gamma0 = gamma
+            break
+
+I, R, E, U = Infecious(I[-7], AI5, E[-7], R[-7], U[-7], beta0, gamma0)
+
+#Parameter Estimation and numerical simulation for period 6 (Piece-wise SEIUR)
+sse = np.zeros(shape = (100,100))
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI6, E[-7], R[-7], U[-7], beta, gamma)
+        sse[int((beta+0.00001)/0.01),int((gamma+0.000001)/0.01)] = SSE(I0,AI6)
+        
+m = np.min(sse)
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI6, E[-7], R[-7], U[-7], beta, gamma)
+        s = SSE(I0,AI6)
+        if s == m:
+            beta0 = beta
+            gamma0 = gamma
+            break
+
+I, R, E, U = Infecious(I[-7], AI6, E[-7], R[-7], U[-7], beta0, gamma0)
+
+#Parameter Estimation and numerical simulation for period 7 (Piece-wise SEIUR)
+sse = np.zeros(shape = (100,100))
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI7, E[-7], R[-7], U[-7], beta, gamma)
+        sse[int((beta+0.00001)/0.01),int((gamma+0.000001)/0.01)] = SSE(I0,AI7)
+
+m = np.min(sse)
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI7, E[-7], R[-7], U[-7], beta, gamma)
+        s = SSE(I0,AI7)
+        if s == m:
+            beta0 = beta
+            gamma0 = gamma
+            break
+
+I, R, E, U = Infecious(I[-7], AI7, E[-7], R[-7], U[-7], beta0, gamma0)
+
+#Parameter Estimation and numerical simulation for period 8 (Piece-wise SEIUR)
+sse = np.zeros(shape = (100,100))
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI8[:-7], E[-7], R[-7], U[-7]+700000, beta, gamma)
+        sse[int((beta+0.00001)/0.01),int((gamma+0.000001)/0.01)] = SSE(I0,AI8[:-7])
+
+m = np.min(sse)
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(I[-7], AI8[:-7], E[-7], R[-7], U[-7]+700000, beta, gamma)
+        s = SSE(I0,AI8[:-7])
+        if s == m:
+            beta0 = beta
+            gamma0 = gamma
+            break
+
+I, R, E, U = Infecious(I[-7], AI8[:-7], E[-7], R[-7], U[-7]+700000, beta0, gamma0)
+
+#Parameter Estimation and numerical simulation for SEIUR model
+sse = np.zeros(shape = (100,100))
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(AI[13], AI[13:], 0, R1[13], AI[13]*(1-0.1)/0.1, beta, gamma)
+        sse[int((beta+0.00001)/0.01),int((gamma+0.000001)/0.01)] = SSE(I0,AI[13:])
+
+m = np.min(sse)
+for beta in np.arange(0,1,0.01):
+    for gamma in np.arange(0,1,0.01):
+        I0, R0, E0, U0 = Infecious(AI[13], AI[13:], 0, R1[13], AI[13]*(1-0.1)/0.1, beta, gamma)
+        s = SSE(I0,AI[13:])
+        if s == m:
+            beta0 = beta
+            gamma0 = gamma
+            break
+
+I, R, E, U = Infecious(AI[13], AI[13:], 0, R1[13], AI[13]*(1-0.1)/0.1, beta0, gamma0)
+    
